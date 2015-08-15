@@ -45,6 +45,8 @@ def main(dir):
                     train_labels.append(phn)
                     t = t[1:]
 
+        while train_samples.shape[0] > len(train_labels):
+            train_labels.append("UNKNOWN")
 
     print(train_samples.shape)
     print(len(train_labels))
