@@ -7,9 +7,17 @@ import scipy.io.wavfile
 import sys
 import tempfile
 import subprocess
-from sklearn.preprocessing import normalize
+import pandas as pd
 
-def main(dir):
+WINDOW_WIDTH=400
+WINDOW_NOVERLAP=200
+
+def main(dir, hdf_file):
+    store = pd.HDFStore(hdf_file)
+
+    X_frames = []
+    y_frames = []
+
     wav_files = []
     phn_files = []
 
@@ -20,14 +28,14 @@ def main(dir):
             if f.endswith('.phn'):
                 phn_files.append(join(root, f))
 
+    meta_df = pd.DataFrame(index=np.arange(len(wav_files)))
 
-    train_samples = np.zeros((0,201),dtype=np.float64)
-    train_labels = []
-    for wav_file, phn_file in zip(sorted(wav_files),
-                                  sorted(phn_files)):
-        #print(wav_file)
-        #print(phn_file)
-        with tempfile.TemporaryFile() as fp:
+    for file_id, files in  enumerate(zip(sorted(wav_files),
+                                  sorted(phn_files))):
+        wav_file, phn_file = files
+        print(wav_file)
+
+        with tempfile.SpooledTemporaryFile() as fp:
             subprocess.check_call(['sox', wav_file, '-t', 'wav', '-'], stdout=fp)
             fp.seek(0)
             framerate, data = scipy.io.wavfile.read(fp)
@@ -35,36 +43,54 @@ def main(dir):
             data_f = data / np.iinfo(data.dtype).max
 
             # what kind of window width and overlap should we use?
-            spec, freqs, t = matplotlib.mlab.specgram(data_f, 400, Fs=1, window=np.hamming(400), noverlap=200)
-            train_samples = np.append(train_samples, spec.T, axis=0)
+            spec, freqs, t = matplotlib.mlab.specgram(data_f,
+                                                      WINDOW_WIDTH,
+                                                      Fs=1,
+                                                      window=np.hamming(WINDOW_WIDTH),
+                                                      noverlap=WINDOW_NOVERLAP)
 
+            indices = [(file_id, i) for i in range(spec.shape[1])]
 
+            X_frames.append(pd.DataFrame(spec.T, index=indices, columns=range(WINDOW_WIDTH//2+1)))
 
+            labels = []
             t = list(t)
             for line in open(phn_file):
                 s, e, phn = line.split()
                 while len(t) > 0 and t[0] < int(e):
-                    train_labels.append(phn)
+                    labels.append(phn)
                     t = t[1:]
+            while spec.shape[1] > len(labels):
+                labels.append("h#")
 
-        while train_samples.shape[0] > len(train_labels):
-            print(phn_file)
-            train_labels.append("h#")
+            y_frames.append(pd.DataFrame(labels, columns=["timit_label"], index=indices))
 
+            _, set_type, dialect_region, speaker, sentence = wav_file[wav_file.rfind("timit"):].split('/')
 
-    train_samples = (train_samples - train_samples.mean(axis=0)) / train_samples.std(axis=0)
+            file_info={
+                "speaker": speaker,
+                "male": speaker[0] == 'M',
+                "dialect_region":dialect_region,
+                "frame_count": spec.shape[1],
+                "sent_type": sentence[:2],
+                "sent_id": int(sentence[2:sentence.find('.')]),
+                "train": set_type == "train",
+                "core_test": speaker in ('DAB0', 'WBT0', 'ELC0', 'TAS1', 'WEW0', 'PAS0', 'JMP0', 'LNT0', 'PKT0', 'LLL0', 'TLS0', 'JLM0', 'BPM0', 'KLT0', 'NLP0', 'CMJ0', 'JDH0', 'MGD0', 'GRT0', 'NJM0', 'DHC0', 'JLN0', 'PAM0', 'MLD0')
+            }
+            meta_df = meta_df[file_id] = file_info
 
-    print(train_samples.std(axis=0))
+    store.put("meta", meta_df)
+    X_df = pd.concat(X_frames)
+    y_df = pd.concat(y_frames)
 
-    print(train_samples.shape)
-    print(len(train_labels))
+    store.put("X", X_df)
+    store.put("y", y_df)
 
-    with open('out.labels', 'w') as fd:
-        for label in train_labels:
-            print(label, file=fd)
-
-    np.save('out.features', train_samples)
+    X_df.info()
+    y_df.info()
+    meta_df.info()
 
 if __name__ == "__main__":
     timit_dir = sys.argv[1]
-    main(timit_dir)
+    hdf_file = sys.argv[2]
+    main(timit_dir, hdf_file)
