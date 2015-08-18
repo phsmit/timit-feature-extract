@@ -71,13 +71,13 @@ def main(dir, hdf_file):
 
             file_info={
                 "speaker": speaker,
-                "male": speaker[0] == 'M',
+                "male": speaker[0] == 'm',
                 "dialect_region":dialect_region,
                 "frame_count": spec.shape[1],
                 "sent_type": sentence[:2],
                 "sent_id": int(sentence[2:sentence.find('.')]),
                 "train": set_type == "train",
-                "core_test": speaker in ('DAB0', 'WBT0', 'ELC0', 'TAS1', 'WEW0', 'PAS0', 'JMP0', 'LNT0', 'PKT0', 'LLL0', 'TLS0', 'JLM0', 'BPM0', 'KLT0', 'NLP0', 'CMJ0', 'JDH0', 'MGD0', 'GRT0', 'NJM0', 'DHC0', 'JLN0', 'PAM0', 'MLD0')
+                "core_test": speaker.upper() in ('DAB0', 'WBT0', 'ELC0', 'TAS1', 'WEW0', 'PAS0', 'JMP0', 'LNT0', 'PKT0', 'LLL0', 'TLS0', 'JLM0', 'BPM0', 'KLT0', 'NLP0', 'CMJ0', 'JDH0', 'MGD0', 'GRT0', 'NJM0', 'DHC0', 'JLN0', 'PAM0', 'MLD0')
             }
             meta_frames.append(pd.DataFrame(file_info, index=[file_id]))
 
