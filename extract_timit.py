@@ -12,11 +12,15 @@ import pandas as pd
 WINDOW_WIDTH=400
 WINDOW_NOVERLAP=200
 
+
 def main(dir, hdf_file):
+    if os.path.exists(hdf_file):
+        os.remove(hdf_file)
+
     store = pd.HDFStore(hdf_file)
 
-    X_frames = []
     y_frames = []
+    meta_frames = []
 
     wav_files = []
     phn_files = []
@@ -27,8 +31,6 @@ def main(dir, hdf_file):
                 wav_files.append(join(root, f))
             if f.endswith('.phn'):
                 phn_files.append(join(root, f))
-
-    meta_df = pd.DataFrame(index=np.arange(len(wav_files)))
 
     for file_id, files in  enumerate(zip(sorted(wav_files),
                                   sorted(phn_files))):
@@ -49,9 +51,9 @@ def main(dir, hdf_file):
                                                       window=np.hamming(WINDOW_WIDTH),
                                                       noverlap=WINDOW_NOVERLAP)
 
-            indices = [(file_id, i) for i in range(spec.shape[1])]
+            indices = pd.MultiIndex.from_tuples([(file_id, i) for i in range(spec.shape[1])], names=['file','frame'])
 
-            X_frames.append(pd.DataFrame(spec.T, index=indices, columns=range(WINDOW_WIDTH//2+1)))
+            store.append('X', pd.DataFrame(spec.T, index=indices, columns=range(WINDOW_WIDTH//2+1)))
 
             labels = []
             t = list(t)
@@ -77,18 +79,14 @@ def main(dir, hdf_file):
                 "train": set_type == "train",
                 "core_test": speaker in ('DAB0', 'WBT0', 'ELC0', 'TAS1', 'WEW0', 'PAS0', 'JMP0', 'LNT0', 'PKT0', 'LLL0', 'TLS0', 'JLM0', 'BPM0', 'KLT0', 'NLP0', 'CMJ0', 'JDH0', 'MGD0', 'GRT0', 'NJM0', 'DHC0', 'JLN0', 'PAM0', 'MLD0')
             }
-            meta_df = meta_df[file_id] = file_info
+            meta_frames.append(pd.DataFrame(file_info, index=[file_id]))
 
-    store.put("meta", meta_df)
-    X_df = pd.concat(X_frames)
-    y_df = pd.concat(y_frames)
+    store.append('y',pd.concat(y_frames))
 
-    store.put("X", X_df)
-    store.put("y", y_df)
-
-    X_df.info()
-    y_df.info()
+    meta_df = pd.concat(meta_frames)
     meta_df.info()
+    store.append('meta', meta_df)
+
 
 if __name__ == "__main__":
     timit_dir = sys.argv[1]
