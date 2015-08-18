@@ -17,7 +17,7 @@ def main(dir, hdf_file):
     if os.path.exists(hdf_file):
         os.remove(hdf_file)
 
-    store = pd.HDFStore(hdf_file)
+    store = pd.HDFStore(hdf_file, complevel=5)
 
     y_frames = []
     meta_frames = []
