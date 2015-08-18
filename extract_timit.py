@@ -53,7 +53,7 @@ def main(dir, hdf_file):
 
             indices = pd.MultiIndex.from_tuples([(file_id, i) for i in range(spec.shape[1])], names=['file','frame'])
 
-            store.append('X', pd.DataFrame(spec.T, index=indices, columns=range(WINDOW_WIDTH//2+1)))
+            store.append('X', pd.DataFrame(spec.T.astype(np.float32), index=indices, columns=range(WINDOW_WIDTH//2+1)))
 
             labels = []
             t = list(t)
