@@ -25,6 +25,38 @@ def main(dir, hdf_file):
     wav_files = []
     phn_files = []
 
+
+    phone_fold_map = {
+        'ux': 'uw',
+        'axr': 'er',
+        'em': 'm',
+        'nx': 'n',
+        'eng': 'ng',
+        'hv': 'hh',
+        'pcl': 'cl',
+        'tcl': 'cl',
+        'kcl': 'cl',
+        'qcl': 'cl',
+        'bcl': 'vcl',
+        'dcl': 'vcl',
+        'gcl': 'vcl',
+        'h#': 'sil',
+        '#h': 'sil',
+        'pau': 'sil',
+    }
+
+    conf_map = {
+        'cl': 'sil',
+        'vcl': 'sil',
+        'epi': 'sil',
+        'l': 'el',
+        'n': 'en',
+        'zh': 'sh',
+        'aa': 'ao',
+        'ix': 'ih',
+        'ax': 'ah',
+    }
+
     for root, dirs, files in os.walk(dir):
         for f in files:
             if f.endswith('.wav'):
@@ -60,12 +92,15 @@ def main(dir, hdf_file):
             for line in open(phn_file):
                 s, e, phn = line.split()
                 while len(t) > 0 and t[0] < int(e):
-                    labels.append(phn)
+                    fold_phone = phone_fold_map.get(phn,phn)
+                    conf_phone = conf_map.get(fold_phone,fold_phone)
+                    labels.append((phn, fold_phone, conf_phone))
+
                     t = t[1:]
             while spec.shape[1] > len(labels):
-                labels.append("h#")
+                labels.append(("h#", "sil", "sil"))
 
-            y_frames.append(pd.DataFrame(labels, columns=["timit_label"], index=indices))
+            y_frames.append(pd.DataFrame(labels, columns=["timit_label", 'fold_label', 'conf_label'], index=indices))
 
             _, set_type, dialect_region, speaker, sentence = wav_file[wav_file.rfind("timit"):].split('/')
 
@@ -77,7 +112,7 @@ def main(dir, hdf_file):
                 "sent_type": sentence[:2],
                 "sent_id": int(sentence[2:sentence.find('.')]),
                 "train": set_type == "train",
-                "core_test": speaker.upper() in ('DAB0', 'WBT0', 'ELC0', 'TAS1', 'WEW0', 'PAS0', 'JMP0', 'LNT0', 'PKT0', 'LLL0', 'TLS0', 'JLM0', 'BPM0', 'KLT0', 'NLP0', 'CMJ0', 'JDH0', 'MGD0', 'GRT0', 'NJM0', 'DHC0', 'JLN0', 'PAM0', 'MLD0')
+                "core_test": speaker[1:].upper() in ('DAB0', 'WBT0', 'ELC0', 'TAS1', 'WEW0', 'PAS0', 'JMP0', 'LNT0', 'PKT0', 'LLL0', 'TLS0', 'JLM0', 'BPM0', 'KLT0', 'NLP0', 'CMJ0', 'JDH0', 'MGD0', 'GRT0', 'NJM0', 'DHC0', 'JLN0', 'PAM0', 'MLD0')
             }
             meta_frames.append(pd.DataFrame(file_info, index=[file_id]))
 
